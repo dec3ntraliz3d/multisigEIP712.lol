@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0 <0.9.0;
+pragma solidity 0.8.17;
 
-// import "hardhat/console.sol";
-import "@openzeppelin/contracts/utils/Create2.sol";
-
+import "openzeppelin-contracts/utils/Create2.sol";
 import "./MultiSigWallet.sol";
 
 //custom errors
@@ -25,7 +23,7 @@ contract MultiSigFactory {
     event Owners(
         address indexed contractAddress,
         address[] owners,
-        uint256 indexed signaturesRequired
+        uint256 signaturesRequired
     );
 
     modifier onlyRegistered() {
@@ -68,12 +66,10 @@ contract MultiSigFactory {
         address[] calldata _owners,
         uint256 _signaturesRequired,
         string calldata _name
-    ) public payable {
+    ) public payable returns (address) {
         uint256 id = numberOfMultiSigs();
 
-        bytes32 _salt = keccak256(
-            abi.encodePacked(abi.encode(_name, address(msg.sender)))
-        );
+        bytes32 _salt = keccak256(abi.encodePacked(_name, address(msg.sender)));
 
         /**----------------------
          * create2 implementation
@@ -97,7 +93,7 @@ contract MultiSigFactory {
         multiSig.init(_owners, _signaturesRequired);
 
         multiSigs.push(multiSig);
-        existsMultiSig[address(multiSig_address)] = true;
+        existsMultiSig[multiSig_address] = true;
 
         emit Create2Event(
             id,
@@ -108,6 +104,7 @@ contract MultiSigFactory {
             _signaturesRequired
         );
         emit Owners(address(multiSig), _owners, _signaturesRequired);
+        return multiSig_address;
     }
 
     /**----------------------
@@ -125,9 +122,7 @@ contract MultiSigFactory {
             )
         );
 
-        bytes32 _salt = keccak256(
-            abi.encodePacked(abi.encode(_name, address(msg.sender)))
-        );
+        bytes32 _salt = keccak256(abi.encodePacked(_name, address(msg.sender)));
         address computed_address = Create2.computeAddress(_salt, bytecodeHash);
 
         return computed_address;

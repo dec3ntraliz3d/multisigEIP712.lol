@@ -17,7 +17,7 @@ interface IMultisigWallet {
     event Deposit(address indexed sender, uint256 amount, uint256 balance);
     event ExecuteTransaction(
         address indexed owner,
-        address payable to,
+        address to,
         uint256 value,
         bytes data,
         uint256 nonce,
@@ -29,5 +29,12 @@ interface IMultisigWallet {
     struct UpdateSigner {
         address signer;
         uint256 newSignaturesRequired;
+    }
+
+    struct Transaction {
+        address to;
+        uint256 value;
+        bytes data;
+        bytes[] signatures;
     }
 }

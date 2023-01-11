@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0 <0.9.0;
+pragma solidity 0.8.17;
 
 contract SignatureDecoder {
+    error InvalidSignatureLength();
+
     function splitSignature(bytes memory sig)
         public
         pure
@@ -11,7 +13,7 @@ contract SignatureDecoder {
             uint8 v
         )
     {
-        require(sig.length == 65, "invalid signature length");
+        if (sig.length != 65) revert InvalidSignatureLength();
         assembly {
             /*
             First 32 bytes stores the length of the signature

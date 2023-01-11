@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+/// Modified version of https://github.com/Uniswap/permit2/blob/main/src/EIP712.sol
+
 /// @notice EIP712 helpers for Multisig.lol
 /// @dev Maintains cross-chain replay protection in the event of a fork
 /// @dev Reference: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/cryptography/EIP712.sol

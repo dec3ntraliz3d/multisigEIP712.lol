@@ -1,21 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0 <0.9.0;
+pragma solidity 0.8.17;
 
 // never forget the OG simple sig wallet: https://github.com/christianlundkvist/simple-multisig/blob/master/contracts/SimpleMultiSig.sol
 
-// pragma experimental ABIEncoderV2;
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "./MultiSigFactory.sol";
+import {MultiSigFactory} from "./MultiSigFactory.sol";
 import {EIP712} from "./EIP712.sol";
 import {IMultisigWallet} from "./interfaces/IMultisigWallet.sol";
 import {SignatureDecoder} from "./SignatureDecoder.sol";
 
 contract MultiSigWallet is EIP712, IMultisigWallet, SignatureDecoder {
-    using ECDSA for bytes32;
-    bytes32 public constant EXECUTE_HASH =
+    bytes32 private constant EXECUTE_HASH =
         keccak256("Execute(uint256 nonce,address to,uint256 value,bytes data)");
-
-    MultiSigFactory private immutable multiSigFactory;
+    MultiSigFactory public immutable multiSigFactory;
 
     mapping(address => bool) public isOwner;
     address[] public owners;
@@ -157,42 +153,38 @@ contract MultiSigWallet is EIP712, IMultisigWallet, SignatureDecoder {
         signaturesRequired = newSignaturesRequired;
     }
 
-    function executeBatch(
-        address[] calldata to,
-        uint256[] calldata value,
-        bytes[] calldata data,
-        bytes[][] calldata signatures
-    ) public onlyOwner returns (bytes[] memory) {
-        uint256 toLength = to.length;
-        bytes[] memory results = new bytes[](toLength);
-        for (uint256 i = 0; i < toLength; i++) {
-            results[i] = executeTransaction(
-                payable(to[i]),
-                value[i],
-                data[i],
-                signatures[i]
-            );
+    function executeBatch(Transaction[] calldata _transactions)
+        public
+        onlyOwner
+        returns (bytes[] memory)
+    {
+        bytes[] memory results = new bytes[](_transactions.length);
+        for (uint256 i = 0; i < _transactions.length; i++) {
+            results[i] = executeTransaction(_transactions[i]);
         }
         return results;
     }
 
-    function executeTransaction(
-        address payable to,
-        uint256 value,
-        bytes calldata data,
-        bytes[] calldata signatures
-    ) public onlyOwner returns (bytes memory) {
+    function executeTransaction(Transaction calldata _transaction)
+        public
+        onlyOwner
+        returns (bytes memory)
+    {
         uint256 _nonce = nonce;
-        bytes32 _hash = getTransactionHash(_nonce, to, value, data);
-
-        nonce = _nonce + 1;
+        bytes32 _hash = getTransactionHash(
+            _nonce,
+            _transaction.to,
+            _transaction.value,
+            _transaction.data
+        );
+        nonce++;
 
         uint256 validSignatures;
         address duplicateGuard;
         // get a local reference of the length to save gas
-        uint256 signatureLength = signatures.length;
-        for (uint256 i = 0; i < signatureLength; ) {
-            address recovered = recover(_hash, signatures[i]);
+        uint256 _signatureLength = _transaction.signatures.length;
+        for (uint256 i = 0; i < _signatureLength; ) {
+            address recovered = recover(_hash, _transaction.signatures[i]);
             if (recovered <= duplicateGuard) {
                 revert DUPLICATE_OR_UNORDERED_SIGNATURES();
             }
@@ -210,16 +202,18 @@ contract MultiSigWallet is EIP712, IMultisigWallet, SignatureDecoder {
             revert INSUFFICIENT_VALID_SIGNATURES();
         }
 
-        (bool success, bytes memory result) = to.call{value: value}(data);
+        (bool success, bytes memory result) = payable(_transaction.to).call{
+            value: _transaction.value
+        }(_transaction.data);
         if (!success) {
             revert TX_FAILED();
         }
 
         emit ExecuteTransaction(
             msg.sender,
-            to,
-            value,
-            data,
+            _transaction.to,
+            _transaction.value,
+            _transaction.data,
             _nonce,
             _hash,
             result
@@ -229,13 +223,13 @@ contract MultiSigWallet is EIP712, IMultisigWallet, SignatureDecoder {
 
     function getTransactionHash(
         uint256 _nonce,
-        address to,
-        uint256 value,
-        bytes calldata data
+        address _to,
+        uint256 _value,
+        bytes calldata _data
     ) public view returns (bytes32) {
         return
             _hashTypedData(
-                keccak256(abi.encode(EXECUTE_HASH, nonce, to, value, data))
+                keccak256(abi.encode(EXECUTE_HASH, _nonce, _to, _value, _data))
             );
     }
 
